@@ -8,7 +8,13 @@ class Player:
 
         self.opp = 'r' if str_name == 'b' else 'b'
 
-        self.previous_state = []
+        self.previous_state = [
+                  ['b', 'b', 'b', 'b', 'b'], \
+                  ['b', '.', '.', '.', 'b'], \
+                  ['b', '.', '.', '.', 'r'], \
+                  ['r', '.', '.', '.', 'r'], \
+                  ['r', 'r', 'r', 'r', 'r'], \
+                ]
 
         self.neighborPosDict = {}
         self.neighborPosDictFull = {}
@@ -54,6 +60,107 @@ class Player:
     
     def flatten(self, lst):
         return [item for sublist in lst for item in sublist]
+
+    def getBoard(self , move, state):
+        new_state = self.board_copy(state)
+    
+        # Next move
+        row,col = move[1]
+        max_row = max_col = 4
+        
+        if move[0] == move[1]:
+            return new_state
+        
+        oldrow,oldcol = move[0]
+        if new_state[oldrow][oldcol] != '.':
+            new_state[row][col] = new_state[oldrow][oldcol]
+            new_state[oldrow][oldcol] = '.'
+
+        # Check GH,dont check corner
+        corner = [(0,0),(0,4),(4,0),(4,4)]
+        GHpiece = []
+        if (row,col) not in corner:
+                # left,right,down up
+            if row == 0 or row == max_row:
+                if new_state[row][col-1] == new_state[row][col+1] and new_state[row][col-1] != new_state[row][col]:
+                    GHpiece.append((row,col-1))
+                    GHpiece.append((row,col+1))
+            elif col == 0 or col == max_col:
+                if new_state[row-1][col] == new_state[row+1][col] and new_state[row-1][col] != new_state[row][col]:
+                    GHpiece.append((row-1,col))
+                    GHpiece.append((row+1,col))
+            # Diagonal
+            else:
+                if new_state[row][col-1] == new_state[row][col+1] and new_state[row][col-1] != new_state[row][col]:
+                        GHpiece.append((row,col-1))
+                        GHpiece.append((row,col+1))
+                if new_state[row-1][col] == new_state[row+1][col] and new_state[row-1][col] != new_state[row][col]:
+                        GHpiece.append((row-1,col))
+                        GHpiece.append((row+1,col))
+                if not((row % 2 == 0 and col % 2 != 0) or (row % 2 != 0 and col % 2 == 0)):
+                    if new_state[row-1][col-1] == new_state[row+1][col+1] and new_state[row-1][col-1] != new_state[row][col]:
+                            GHpiece.append((row-1,col-1))
+                            GHpiece.append((row+1,col+1))
+                    if new_state[row+1][col-1] == new_state[row-1][col+1] and new_state[row+1][col-1] != new_state[row][col]:
+                            GHpiece.append((row-1,col+1))
+                            GHpiece.append((row+1,col-1))
+        
+        if GHpiece:
+            for r,c in GHpiece:
+                if new_state[r][c] != '.':
+                    new_state[r][c] = self.changePiece(new_state[r][c])
+   
+        # Check CH,check for each piece
+        neighborPos = self.neighborPosDict[str(row*len(new_state)+col)]
+        
+        # Get neighbor of "new move" piece
+        queue = []
+        for r,c in neighborPos:
+            if new_state[r][c] != new_state[row][col] and new_state[r][c] != '.':
+                queue.append((r,c))
+        
+        # For each neighbor (it might "outside" or "inside" neighbor)
+        for e in queue:
+
+            adjPiece = [e]
+            chFlag = True
+            temp_state = self.board_copy(new_state)
+            
+            # Like BFS 
+            while adjPiece and chFlag:
+                #Get b to visit and mark it as visited,then pop it out from CHpiece
+                temp = adjPiece.pop(0)
+                #Get it neighbor
+                neighborPos = self.neighborPosDict[str(temp[0]*len(new_state)+temp[1])]
+                res = []
+                for r,c in neighborPos:
+                    if temp_state[r][c] == '.':
+                        res = []
+                        chFlag = False
+                        break
+                    elif temp_state[r][c] != temp_state[row][col]:
+                        res.append((r,c))
+
+                if chFlag:
+                    temp_state[temp[0]][temp[1]] = self.changePiece(temp_state[temp[0]][temp[1]])
+                    adjPiece += res
+            
+            if chFlag:
+                new_state = temp_state
+                break
+        return new_state
+
+    def changePiece(piece):
+        if piece == 'r':
+            return 'b'
+        elif piece == 'b':
+            return 'r'
+
+    def board_copy(board):
+        new_board = [[]]*5
+        for i in range(5):
+            new_board[i] = [] + board[i]
+        return new_board
     
     # Check if pos can make a GH
     def isGH(self, pos, state):
@@ -89,10 +196,11 @@ class Player:
                             return True
         return False
 
-    def getTrapPos(self, state):
+    def getTrapMove(self, state):
         temp1 = self.flatten(self.previous_state)
         temp2 = self.flatten(state)
-
+        
+        # If not GH or CH
         if temp1.count('r') == temp2.count('r'):
             return []
 
@@ -108,21 +216,21 @@ class Player:
         # Get all pos can make trap
         adjPiece = list(filter(lambda x : state[x[0]][x[1]] == '.',neighborPos))
         
-        trapPos = []
+        trapMove = []
 
         for r,c in adjPiece:
             neighborPos = self.neighborPosDict[str(r*len(state)+c)]
             pos = (r,c)
-
-            if (list(filter(lambda x: state[x[0]][x[1]] == self.opp,neighborPos)) 
-                and self.isGH(pos,state)):
-                trapPos.append((r,c))
+            
+            trapEnemy = list(filter(lambda x: state[x[0]][x[1]] == self.str,neighborPos))
+            if trapEnemy and self.isGH(pos,state):
+                trapMove += list(map(lambda x : [x,pos],trapEnemy))
         
-        return trapPos
-
-    def generateMove(self, player ,state):
+        return trapMove
+    
+    def generateMove(self,player,state):
         moveLst = []
-        
+        # If not trap
         for r in range(len(state)):
             for c in range(len(state)):
                 if state[r][c] == player:
@@ -130,18 +238,42 @@ class Player:
                     for pos in neighborPos:
                         if state[pos[0]][pos[1]] == '.':
                             moveLst.append([(r,c),pos])
-        if not moveLst:
+        
+        return moveLst
+    
+    def evaluateBoard(self,player,state):
+        temp = self.flatten(state)
+        
+        opp = 'b'
+        if player == 'b':
+            opp = 'r'
+
+        return temp.count(player) - temp.count(opp)
+
+    def minimaxRoot(self,player, depth, state, isMaximisingPlayer):     
+        trapMove = self.getTrapMove(state)
+
+        if trapMove:
+            print("trap")
+            print("trap")
+            print("trap" + str(trapMove))
+            return trapMove[random.randint(0,len(trapMove) - 1)]
+        
+        moveLst = self.generateMove(self.str,state)
+        
+        if moveLst:
+            return moveLst[random.randint(0,len(moveLst) - 1)]
+        else:
             return []
-        return moveLst[random.randint(0,len(moveLst) - 1)]
+    
+
     # Student MUST implement this function
     # The return value should be a move that is denoted by a list of tuples:
     # [(row1, col1), (row2, col2)] with:
         # (row1, col1): current position of selected piece
         # (row2, col2): new position of selected piece
-    def next_move(self, state):
-        if state == self.previous_state:
-            return []
-        result = self.generateMove(self.str,state)
-        print(result)
+    def next_move(self, state):            
+        result = self.minimaxRoot(3,state,True)
+
         self.previous_state = state
         return result

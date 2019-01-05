@@ -90,11 +90,12 @@ def doit(move, state):
             neighborPos.append((r,c+1))
             neighborPos.append((r-1,c))
             neighborPos.append((r+1,c))
-            #if not((row % 2 == 0 and col % 2 != 0) or (row % 2 != 0 and col % 2 == 0)):
-            neighborPos.append((r-1,c-1))
-            neighborPos.append((r+1,c+1))
-            neighborPos.append((r-1,c+1))
-            neighborPos.append((r+1,c-1))
+            
+            if not((row % 2 == 0 and col % 2 != 0) or (row % 2 != 0 and col % 2 == 0)):
+                neighborPos.append((r-1,c-1))
+                neighborPos.append((r+1,c+1))
+                neighborPos.append((r-1,c+1))
+                neighborPos.append((r+1,c-1))
 
             neighborPos = list(filter(lambda x : (x[0] >= 0 and x[0] <= 4) and (x[1] >= 0 and x[1] <=4),neighborPos))
             
@@ -121,9 +122,7 @@ def doit(move, state):
         # Like BFS 
         while adjPiece and chFlag:
             #Get b to visit and mark it as visited,then pop it out from CHpiece
-            temp = adjPiece[0]
-            adjPiece.pop(0)
-        
+            temp = adjPiece.pop(0)
             #Get it neighbor
             neighborPos = neighborPosDict[str(temp[0]*len(new_state)+temp[1])]
             res = []
@@ -132,11 +131,12 @@ def doit(move, state):
                     res = []
                     chFlag = False
                     break
-                if temp_state[r][c] != temp_state[row][col]:
+                elif temp_state[r][c] != temp_state[row][col]:
                     res.append((r,c))
-            
-            temp_state[temp[0]][temp[1]] = changePiece(temp_state[temp[0]][temp[1]])
-            adjPiece += res
+
+            if chFlag:
+                temp_state[temp[0]][temp[1]] = changePiece(temp_state[temp[0]][temp[1]])
+                adjPiece += res
         
         if chFlag:
             new_state = temp_state
