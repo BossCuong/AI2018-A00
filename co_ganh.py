@@ -3,6 +3,14 @@
 import random
 class Player:
     # student do not allow to change two first functions
+
+    Initial_Board = [
+                  ['b', 'b', 'b', 'b', 'b'], \
+                  ['b', '.', '.', '.', 'b'], \
+                  ['b', '.', '.', '.', 'r'], \
+                  ['r', '.', '.', '.', 'r'], \
+                  ['r', 'r', 'r', 'r', 'r'], \
+                ]
     def __init__(self, str_name):
         self.str = str_name
 
@@ -39,8 +47,8 @@ class Player:
                 temp2.append((r-1,c+1))
                 temp2.append((r+1,c-1))
                 
-                temp1 = list(filter(lambda x : (x[0] >= 0 and x[0] <= 4) and (x[1] >= 0 and x[1] <=4),temp1))
-                temp2 = list(filter(lambda x : (x[0] >= 0 and x[0] <= 4) and (x[1] >= 0 and x[1] <=4),temp2))
+                temp1 = list(filter(lambda x : (x[0] >= 0 and x[0] <= 4) and (x[1] >= 0 and x[1] <= 4),temp1))
+                temp2 = list(filter(lambda x : (x[0] >= 0 and x[0] <= 4) and (x[1] >= 0 and x[1] <= 4),temp2))
                 
                 # Full adj
                 self.neighborPosDictFull[str(r*state_len+c)] = temp1 + temp2
@@ -150,21 +158,24 @@ class Player:
                 break
         return new_state
 
-    def changePiece(piece):
+    def changePiece(self,piece):
         if piece == 'r':
             return 'b'
         elif piece == 'b':
             return 'r'
 
-    def board_copy(board):
+    def board_copy(self,board):
         new_board = [[]]*5
         for i in range(5):
             new_board[i] = [] + board[i]
         return new_board
     
     # Check if pos can make a GH
-    def isGH(self, pos, state):
-
+    def isGH(self, player, pos, state):
+        opp = 'b'
+        if player == 'b':
+            opp = 'r'
+            
         row = pos[0]
         col = pos[1]
         max_row = max_col = 4
@@ -173,35 +184,38 @@ class Player:
 
         if (row,col) not in corner:
             if row == 0 or row == max_row:
-                if state[row][col-1] == state[row][col+1] and state[row][col-1] == self.opp:
+                if state[row][col-1] == state[row][col+1] and state[row][col-1] == opp:
                     return True
             elif col == 0 or col == max_col:
-                if state[row-1][col] == state[row+1][col] and state[row-1][col] == self.opp:
+                if state[row-1][col] == state[row+1][col] and state[row-1][col] == opp:
                     return True
             # Diagonal
             else:
-                if state[row][col-1] == state[row][col+1] and state[row][col-1] == self.opp:
+                if state[row][col-1] == state[row][col+1] and state[row][col-1] == opp:
                     return True
-                if state[row-1][col] == state[row+1][col] and state[row-1][col] == self.opp:
+                if state[row-1][col] == state[row+1][col] and state[row-1][col] == opp:
                     return True
 
                 if not (row % 2 == 0 and col % 2 != 0) or (row % 2 != 0 and col % 2 == 0):
-                    if state[row][col-1] == state[row][col+1] and state[row][col-1] == self.opp:
+                    if state[row][col-1] == state[row][col+1] and state[row][col-1] == opp:
                             return True
-                    if state[row-1][col] == state[row+1][col] and state[row-1][col] == self.opp:
+                    if state[row-1][col] == state[row+1][col] and state[row-1][col] == opp:
                             return True
-                    if state[row-1][col-1] == state[row+1][col+1] and state[row-1][col-1] == self.opp:
+                    if state[row-1][col-1] == state[row+1][col+1] and state[row-1][col-1] == opp:
                             return True
-                    if state[row+1][col-1] == state[row-1][col+1] and state[row+1][col-1] == self.opp:
+                    if state[row+1][col-1] == state[row-1][col+1] and state[row+1][col-1] == opp:
                             return True
         return False
 
-    def getTrapMove(self, state):
+    def getTrapMove(self,player, state):
         temp1 = self.flatten(self.previous_state)
         temp2 = self.flatten(state)
         
+        print(temp1)
+        print(temp2)
         # If not GH or CH
-        if temp1.count('r') == temp2.count('r'):
+        if temp1.count('r') != temp2.count('r'):
+            print("aaaaa")
             return []
 
         cmp_state = list(zip(temp1,temp2))
@@ -217,13 +231,17 @@ class Player:
         adjPiece = list(filter(lambda x : state[x[0]][x[1]] == '.',neighborPos))
         
         trapMove = []
-
+        
+        # print(str(curr_move))
+        # print(neighborPos)
+        # print(adjPiece)
+     
         for r,c in adjPiece:
             neighborPos = self.neighborPosDict[str(r*len(state)+c)]
             pos = (r,c)
             
-            trapEnemy = list(filter(lambda x: state[x[0]][x[1]] == self.str,neighborPos))
-            if trapEnemy and self.isGH(pos,state):
+            trapEnemy = list(filter(lambda x: state[x[0]][x[1]] == player,neighborPos))
+            if trapEnemy and self.isGH(player,pos,state):
                 trapMove += list(map(lambda x : [x,pos],trapEnemy))
         
         return trapMove
@@ -250,8 +268,11 @@ class Player:
 
         return temp.count(player) - temp.count(opp)
 
-    def minimaxRoot(self,player, depth, state, isMaximisingPlayer):     
-        trapMove = self.getTrapMove(state)
+    def minimaxRoot(self,player, depth, state, isMaximisingPlayer = True):
+        
+        trapMove = []
+        if state != self.previous_state:
+            trapMove = self.getTrapMove(player,state)
 
         if trapMove:
             print("trap")
@@ -273,7 +294,8 @@ class Player:
         # (row1, col1): current position of selected piece
         # (row2, col2): new position of selected piece
     def next_move(self, state):            
-        result = self.minimaxRoot(3,state,True)
-
-        self.previous_state = state
+        result = self.minimaxRoot(self.str,3,state)
+        
+        if result:
+            self.previous_state = self.getBoard(result,state)
         return result
